@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Téléchargement de Reçu</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+  <style>
+    body::before {
+      content: "";
+      background: url('assets/images/banner-bg.jpg') no-repeat center center/cover;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: -1;
+      filter: blur(5px) brightness(0.6);
+    }
+
+    .recu-container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: linear-gradient(145deg, #f7f7f7, #ffffff);
+      border-radius: 16px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+      border: 2px solid #b30000;
+      font-family: 'Segoe UI', sans-serif;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .recu-container.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .recu-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .recu-photo {
+      width: 110px;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 2px solid #0059b3;
+    }
+
+    .recu-title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: #7a0000;
+      margin-bottom: 15px;
+    }
+
+    .recu-infos {
+      background: #f9f9f9;
+      border-radius: 10px;
+      padding: 15px;
+      border: 1px dashed #ccc;
+    }
+
+    .recu-infos p {
+      margin: 8px 0;
+      font-size: 15px;
+      color: #333;
+    }
+
+    .recu-infos strong {
+      width: 120px;
+      display: inline-block;
+      color: #0059b3;
+    }
+
+    .recu-footer {
+      margin-top: 20px;
+      border-top: 1px solid #ccc;
+      padding-top: 15px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .qr-code {
+      width: 110px;
+      height: 110px;
+      border-radius: 10px;
+      border: 1px solid #aaa;
+    }
+
+    .badge-stitched {
+      position: absolute;
+      top: 20px;
+      right: -50px;
+      transform: rotate(45deg);
+      background: #0059b3;
+      color: white;
+      padding: 8px 60px;
+      font-weight: bold;
+      box-shadow: 0 0 6px rgba(0,0,0,0.3);
+      font-size: 13px;
+    }
+
+    .btn-download {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-header" style="background: linear-gradient(to right, #7a0000, #0059b3); color: white; padding: 40px 20px; border-radius: 10px; margin-bottom: 30px; text-align: center;">
+      <h2>Téléchargement du Reçu</h2>
+      <p>Consultez et téléchargez votre reçu d'inscription</p>
+    </div>
+
+    <form id="searchForm" class="mb-4" novalidate>
+      <div class="mb-3">
+        <label for="inputCode" class="form-label">Numéro d'inscription ou Email</label>
+        <input type="text" id="inputCode" class="form-control" placeholder="Ex: jean@example.com" required />
+      </div>
+      <div class="text-end">
+        <button type="submit" class="btn btn-danger">Rechercher mon reçu</button>
+      </div>
+    </form>
+
+    <div class="recu-container" id="recuContainer" style="display: none;">
+      <div class="badge-stitched">PRÉINSCRIPTION</div>
+
+      <div class="recu-header">
+        <img id="photoPersonne" src="image.JPG" alt="Photo" class="recu-photo" />
+        <div>
+          <h5 class="recu-title">Reçu Officiel</h5>
+          <small>Université / Institution</small>
+        </div>
+      </div>
+
+      <div class="recu-infos">
+        <p><strong>Nom :</strong> <span id="recupNom"></span></p>
+        <p><strong>Numéro :</strong> <span id="recupNumero"></span></p>
+        <p><strong>Email :</strong> <span id="recupEmail"></span></p>
+        <p><strong>Date :</strong> <span id="recupDate"></span></p>
+      </div>
+
+      <div class="recu-footer">
+        <div class="text-start mt-3">
+          <p class="mb-1"><strong>QR Code</strong></p>
+          <img id="qrCodeImg" src="" class="qr-code" alt="QR Code" />
+        </div>
+
+        <div class="text-end mt-3">
+          <p class="mb-2"><em>Scannez pour vérifier ce reçu</em></p>
+          <button id="btnDownload" class="btn btn-success btn-download" style="display:none;">📥 Télécharger le Reçu (PDF)</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="message" class="text-center mt-4"></div>
+
+    <div class="text-center mt-4">
+      <a href="index.php" class="btn btn-primary">← Retour à l'accueil</a>
+    </div>
+  </div>
+
+  <script>
+    function genererDataQRCode(data) {
+      return encodeURIComponent(`Nom : ${data.nom}\nNuméro : ${data.numero}\nEmail : ${data.email}\nDate : ${data.date}`);
+    }
+
+    async function convertirImageEnBase64(url) {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        return await new Promise((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        console.warn("Erreur conversion base64:", e);
+        return null;
+      }
+    }
+
+    async function genererPdf() {
+      const jsPDF = window.jspdf.jsPDF;
+      const doc = new jsPDF('p', 'pt', 'a4');
+
+      const recuElement = document.getElementById('recuContainer');
+      const btnDownload = document.getElementById('btnDownload');
+
+      // Cacher le bouton avant capture
+      btnDownload.style.display = 'none';
+
+      // Capture la div avec html2canvas
+      const canvas = await html2canvas(recuElement, {
+        scale: 2,
+        useCORS: true,
+      });
+
+      // Remettre le bouton visible après capture
+      btnDownload.style.display = 'inline-block';
+
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdfWidth = doc.internal.pageSize.getWidth();
+      const pdfHeight = doc.internal.pageSize.getHeight();
+
+      const imgProps = {
+        width: canvas.width,
+        height: canvas.height,
+      };
+
+      const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
+
+      const imgWidth = imgProps.width * ratio;
+      const imgHeight = imgProps.height * ratio;
+
+      const marginX = (pdfWidth - imgWidth) / 2;
+
+      doc.addImage(imgData, 'PNG', marginX, 20, imgWidth, imgHeight);
+
+      doc.save(`Recu_${document.getElementById('recupNumero').textContent}.pdf`);
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const code = document.getElementById('inputCode').value.trim().toLowerCase();
+      const messageDiv = document.getElementById('message');
+      const recuDiv = document.getElementById('recuContainer');
+      const btnDownload = document.getElementById('btnDownload');
+
+      messageDiv.innerHTML = '';
+      recuDiv.style.display = 'none';
+      recuDiv.classList.remove('show');
+      btnDownload.style.display = 'none';
+
+      if (!code) {
+        messageDiv.innerHTML = `<div class="alert alert-warning">Veuillez saisir un numéro ou un email.</div>`;
+        return;
+      }
+
+      fetch('get_recu.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'code=' + encodeURIComponent(code)
+      })
+      .then(response => response.json())
+      .then(async data => {
+        if (data.status === 'success') {
+          const recu = data.data;
+          document.getElementById('recupNom').textContent = recu.nom;
+          document.getElementById('recupNumero').textContent = recu.numero;
+          document.getElementById('recupEmail').textContent = recu.email;
+          document.getElementById('recupDate').textContent = recu.date;
+
+          const photo = recu.photo && recu.photo.trim() !== "" ? recu.photo : "assets/images/avatar.png";
+          document.getElementById('photoPersonne').src = photo;
+
+          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${genererDataQRCode(recu)}`;
+          document.getElementById('qrCodeImg').src = qrUrl;
+
+          btnDownload.style.display = 'inline-block';
+          btnDownload.disabled = false;
+          btnDownload.textContent = "📥 Télécharger le Reçu (PDF)";
+          btnDownload.onclick = async function () {
+            btnDownload.disabled = true;
+            btnDownload.textContent = "Génération du PDF...";
+            await genererPdf();
+            btnDownload.textContent = "📥 Télécharger le Reçu (PDF)";
+            btnDownload.disabled = false;
+          };
+
+          recuDiv.style.display = 'block';
+          setTimeout(() => recuDiv.classList.add('show'), 100);
+        } else {
+          messageDiv.innerHTML = `<div class="alert alert-warning">${data.message}</div>`;
+        }
+      })
+      .catch(error => {
+        messageDiv.innerHTML = `<div class="alert alert-danger">Erreur serveur. Réessayez plus tard.</div>`;
+        console.error(error);
+      });
+    });
+  </script>
+</body>
+</html>
