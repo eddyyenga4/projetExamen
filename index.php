@@ -1,5 +1,9 @@
 <?php
 
+if (condition) {
+  # code...
+}
+
 include 'db.php';
 
 if (isset($_POST["envoyer"])) {
