@@ -1,7 +1,7 @@
 <?php
 
 if (isset($_POST["envoyer"])) {
-  # code...
+//bonjours josh
 }
 
 include 'db.php';
