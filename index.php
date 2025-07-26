@@ -1,6 +1,6 @@
 <?php
 
-if (condition) {
+if (isset($_POST["envoyer"])) {
   # code...
 }
 
