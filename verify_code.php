@@ -1,207 +1,253 @@
 <?php
+session_start(); // TOUJOURS démarrer la session au tout début du fichier
+require_once 'db.php'; 
 
-require_once 'db.php';
+$verification_status = '';
+$email_to_verify = '';
 
-$verification_result = ''; // Variable pour stocker le résultat de la vérification
+// Récupérer l'email de l'URL si présent (envoyé depuis la page d'envoi du code)
+if (isset($_GET['email']) && filter_var($_GET['email'], FILTER_VALIDATE_EMAIL)) {
+    $email_to_verify = htmlspecialchars($_GET['email']);
+} elseif (isset($_POST['hiddenEmail']) && filter_var($_POST['hiddenEmail'], FILTER_VALIDATE_EMAIL)) {
+    $email_to_verify = htmlspecialchars($_POST['hiddenEmail']);
+}
 
-if (isset($_POST['btnVerifyBrevet'])) {
-    $brevet_number_input = trim($_POST['brevetNumber']);
+// Vérifier si le formulaire de confirmation a été soumis
+if (isset($_POST['btnConfirm'])) {
+    $enteredCode = trim($_POST['inputToken']);
+    $submittedEmail = filter_var($_POST['hiddenEmail'], FILTER_SANITIZE_EMAIL);
 
-    // Validation du format du numéro de brevet (ex: N.0005-KIN/2025-OGI)
-    // Expression régulière pour un format strict: N. suivi de 4 chiffres, puis -KIN/, 4 chiffres pour l'année, puis -OGI
-    if (!preg_match('/^N\.\d{4}-KIN\/\d{4}-OGI$/', $brevet_number_input)) {
-        $verification_result = "<div class='alert alert-danger' role='alert'>Format du numéro de brevet invalide. Exemple attendu: N.####-KIN/####-OGI</div>";
+    if (!filter_var($submittedEmail, FILTER_VALIDATE_EMAIL)) {
+        $verification_status = "<div class='alert alert-danger' role='alert'>Adresse email invalide soumise.</div>";
+    } elseif (empty($enteredCode)) {
+        $verification_status = "<div class='alert alert-warning' role='alert'>Veuillez saisir le code de confirmation.</div>";
     } else {
-        try {
-            // Préparer la requête pour rechercher le numéro de brevet
-            $stmt = $conn->prepare("SELECT nom, postnom, prenom, formation_nom, date_debut, date_fin, numero_brevet, etat FROM certifications WHERE numero_brevet = ?");
-            $stmt->execute([$brevet_number_input]);
-            $certification = $stmt->fetch(mode: PDO::FETCH_ASSOC);
-            if ($certification) {
-                // Brevet trouvé, afficher les détails
-                $etat_text = ($certification['etat'] == 1) ? '<span style="color: green; font-weight: bold;">Validé (Brevet émis)</span>' : '<span style="color: orange; font-weight: bold;">En cours de traitement (Non encore émis)</span>';
-            echo "
+        // Requête pour vérifier le code
+        $query = "SELECT id FROM email_verifications 
+                  WHERE email = ? AND verification_code = ? AND is_used = 0 AND expires_at > NOW()";
+        $stmt = mysqli_prepare($conn, $query);
+        
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "ss", $submittedEmail, $enteredCode);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $row = mysqli_fetch_assoc($result);
 
-            <script>
-            Swal.fire({
-                title: '🎓 Brevet trouvé !',
-                html: `
-                    <div style='text-align: left; font-size: 16px; line-height: 1.6; padding: 10px;'>
-                        <p><strong>Numéro de Brevet :</strong> <span style='color: #2d89ef; font-weight: bold;'>" . htmlspecialchars($certification['numero_brevet']) . "</span></p>
-                        
-                        <p><strong>Nom Complet :</strong>
-                        " . htmlspecialchars($certification['nom'] . ' ' . $certification['postnom'] . ' ' . $certification['prenom']) . "</p>
-
-                        <p><strong>Formation :</strong>
-                        " . htmlspecialchars($certification['formation_nom']) . "</p>
-
-                        <p><strong>Période :</strong>
-                        Du <span style='color: green;'>" . htmlspecialchars(date('d/m/Y', strtotime($certification['date_debut']))) . "</span> 
-                        au <span style='color: green;'>" . htmlspecialchars(date('d/m/Y', strtotime($certification['date_fin']))) . "</span></p>
-
-                        <p><strong>État du Brevet :</strong>
-                        <span style='color: darkgreen; font-weight: bold;'>" . $etat_text . "</span></p>
-                    </div>
-                `,
-                icon: 'success',
-                confirmButtonText: 'Fermer',
-                confirmButtonColor: '#3085d6',
-                width: 600,
+            if ($row) {
+                // Code valide : Marquer comme utilisé
+                $updateQuery = "UPDATE email_verifications SET is_used = 1 WHERE id = ?";
+                $updateStmt = mysqli_prepare($conn, $updateQuery);
                 
-            });
-            </script>
-            ";
+                if ($updateStmt) {
+                    mysqli_stmt_bind_param($updateStmt, "i", $row['id']);
+                    mysqli_stmt_execute($updateStmt);
+                    mysqli_stmt_close($updateStmt);
+                }
 
+                // Enregistrer dans la session
+                $_SESSION['email_valide'] = true;
+                $_SESSION['email_utilisateur'] = $submittedEmail;
 
+                // Rediriger
+                header("Location: formulaire.html?validated_email=" . urlencode($submittedEmail));
+                exit();
             } else {
-                // Brevet non trouvé
-                $verification_result = "<div class='alert alert-warning' role='alert'>Aucun brevet trouvé avec ce numéro. Veuillez vérifier le numéro et réessayer.</div>";
+                $verification_status = "<div class='alert alert-danger' role='alert'>Code de confirmation invalide, expiré ou déjà utilisé. Veuillez réessayer.</div>";
             }
-        } catch (PDOException $e) {
-            error_log("Erreur de base de données lors de la vérification du brevet: " . $e->getMessage());
-            $verification_result = "<div class='alert alert-danger' role='alert'>Une erreur est survenue lors de la vérification. Veuillez réessayer.</div>";
+
+            mysqli_stmt_close($stmt);
+        } else {
+            error_log("Erreur de préparation de requête : " . mysqli_error($conn));
+            $verification_status = "<div class='alert alert-danger' role='alert'>Une erreur est survenue lors de la vérification. Veuillez réessayer.</div>";
         }
     }
 }
 ?>
 
 
-<style>
-  body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background-color: #f8f9fa;
-      margin: 0;
-  }
-
-  .center-wrapper {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 30px 15px;
-  }
-
-  .main-signup-header {
-      background-color: #ffffff;
-      padding: 40px 30px;
-      border-radius: 8px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 650px;
-      text-align: center;
-      overflow-y: auto;
-  }
-
-  .form-group {
-      margin-bottom: 25px;
-      text-align: left;
-  }
-
-  .form-control {
-      border-radius: 5px;
-      padding: 12px 15px;
-      font-size: 16px;
-      border: 1px solid #ced4da;
-      width: 100%;
-      box-sizing: border-box;
-  }
-
-  .btn-dark {
-      background-color: #343a40;
-      border-color: #343a40;
-      color: #ffffff;
-      padding: 12px 20px;
-      font-size: 18px;
-      border-radius: 30px;
-      width: 100%;
-      cursor: pointer;
-  }
-
-  .btn-dark:hover {
-      background-color: #23272b;
-      border-color: #23272b;
-  }
-
-  .alert {
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 4px;
-      font-size: 15px;
-      text-align: left;
-      overflow-wrap: break-word;
-  }
-
-  .alert-success {
-      color: #155724;
-      background-color: #d4edda;
-      border-color: #c3e6cb;
-  }
-
-  .alert-danger {
-      color: #721c24;
-      background-color: #f8d7da;
-      border-color: #f5c6cb;
-  }
-
-  .alert-warning {
-      color: #856404;
-      background-color: #fff3cd;
-      border-color: #ffeeba;
-  }
-
-  @media (max-width: 576px) {
-      .main-signup-header {
-          padding: 30px 20px;
-          font-size: 15px;
-      }
-
-      .btn-dark {
-          font-size: 16px;
-      }
-  }
-  form {
-  position: relative;
-  z-index: 10;
-}
-
-
-</style>
-
-
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+            margin: 0;
+        }
+        .main-signup-header {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 700px;
+            width: 100%;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        .form-control {
+            border-radius: 5px;
+            padding: 12px 15px;
+            font-size: 16px;
+            border: 1px solid #ced4da;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .btn-dark {
+            background-color: #343a40;
+            border-color: #343a40;
+            color: #ffffff;
+            padding: 12px 20px;
+            font-size: 18px;
+            border-radius: 30px;
+            width: 100%;
+            cursor: pointer;
+        }
+        .btn-dark:hover {
+            background-color: #23272b;
+            border-color: #23272b;
+        }
+        .main-signin-footer {
+            margin-top: 30px;
+        }
+        .main-signin-footer a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .main-signin-footer a:hover {
+            text-decoration: underline;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            font-size: 15px;
+            text-align: left;
+        }
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .alert-warning {
+            color: #856404;
+            background-color: #fff3cd;
+            border-color: #ffeeba;
+        }
+    </style>
 <body class="main-body app sidebar-mini ltr">
-  <div class="main-container container-fluid">
-    <div class="center-wrapper">
-      <div class="main-signup-header">
-        <h2 class="text-dark text-center">Vérification de l'Authenticité du Brevet</h2>
-        <h5 class="fw-semibold mb-4 text-center">Entrez le numéro de brevet pour vérifier</h5>
 
-        <?= $verification_result ?>
+    <div class="main-container container-fluid">
+        <div class="row no-gutter">
 
-        <form role="form" method="POST" action="">
-          <div class="form-group">
-            <label for="brevetNumber">Numéro de Brevet</label>
-            <input class="form-control" type="text" name="brevetNumber" id="brevetNumber" 
-                   placeholder="Ex: N.####-KIN/####-OGI" required 
-                   value="<?= isset($_POST['brevetNumber']) ? htmlspecialchars($_POST['brevetNumber']) : '' ?>">
-            <small class="form-text text-muted mt-2">
-              Veuillez entrer le numéro de brevet exactement tel qu'il apparaît sur le document (ex: N.0000-KIN/2000-OGI).
-            </small>
-          </div>
+<div class="col-md-12 col-lg-12 d-flex justify-content-center">
+    <div class="login py-5 w-100" style="max-width: 700px;">
+        <div class="card-login shadow-lg p-6 bg-white rounded">
+            <div class="main-signup-header">
+                <h2 class="text-dark text-center">Confirmation de l'email</h2>
+                <h5 class="fw-semibold mb-4 text-center text-dark">
+                    Veuillez renseigner le code de confirmation reçu par email
+                </h5>
 
-          <button type="submit" class="btn btn-dark btn-rounded btn-block" name="btnVerifyBrevet">
-            Vérifier le Brevet
-          </button>
-        </form>
+                <?php
+                // Afficher les messages d'état (succès, erreur, avertissement)
+                if (!empty($verification_status)) {
+                    echo $verification_status;
+                }
+                ?>
 
-        <hr class="my-4" />
-        <div class="text-center"><small>&copy; Tous droits réservés OGI-2025</small></div>
-      </div>
+                <form name="form1" id="form1" method="post" action="" >
+                    <div class="form-group mb-3 " >
+                        <label for="inputToken">Code de confirmation</label>
+                        <input class="form-control" type="text" name="inputToken" id="inputToken"
+                            placeholder="Saisir votre code de confirmation" required pattern="\d{14}"
+                            title="Le code doit contenir 14 chiffres">
+                        <input type="hidden" name="hiddenEmail"
+                            value="<?php echo htmlspecialchars($email_to_verify); ?>">
+                    </div>
+
+                    <button type="submit" class="btn btn-dark w-100" name="btnConfirm" id="btnConfirm"
+                        value="Confirmer">Confirmer</button>
+                </form>
+
+                <div class="main-signin-footer mt-4 text-center">
+                    <p><a href="index.php">Retour</a></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-3">
+            <small>&copy; Tous droits réservés OGI-2025</small>
+        </div>
     </div>
-  </div>
-</body>
+</div>
 
+    </div>
+
+    
+  <!-- Scripts -->
+  <!-- Bootstrap core JavaScript -->
+  <script src="vendors/jquery/jquery.min.js"></script>
+  <script src="vendors/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+  <script src="assets/js/isotope.min.js"></script>
+  <script src="assets/js/owl-carousel.js"></script>
+  <script src="assets/js/lightbox.js"></script>
+  <script src="assets/js/tabs.js"></script>
+  <script src="assets/js/video.js"></script>
+  <script src="assets/js/slick-slider.js"></script>
+  <script src="assets/js/custom.js"></script>
+  <script>
+    //according to loftblog tut
+    $('.nav li:first').addClass('active');
+
+    var showSection = function(showSection, isAnimate) {
+      var direction = showSection.replace(/#/, ''),
+        reqSection = $('.section').filter('[data-section="' + direction + '"]'),
+        reqSectionPos = reqSection.offset().top - 0;
+
+      if (isAnimate) {
+        $('body, html').animate({
+          scrollTop: reqSectionPos
+        }, 800);
+      } else {
+        $('body, html').scrollTop(reqSectionPos);
+      }
+
+    };
+
+    var checkSection = function() {
+      $('.section').each(function() {
+        var $this = $(this),
+          topEdge = $this.offset().top - 80,
+          bottomEdge = topEdge + $this.height(),
+          wScroll = $(window).scrollTop();
+        if (topEdge < wScroll && bottomEdge > wScroll) {
+          var currentId = $this.data('section'),
+            reqLink = $('a').filter('[href*=\\#' + currentId + ']');
+          reqLink.closest('li').addClass('active').
+          siblings().removeClass('active');
+        }
+      });
+    };
+
+    $('.main-menu, .responsive-menu, .scroll-to-section').on('click', 'a', function(e) {
+      e.preventDefault();
+      showSection($(this).attr('href'), true);
+    });
+
+    $(window).scroll(function() {
+      checkSection();
+    });
+  </script>
+</body>
 
 </html>
