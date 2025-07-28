@@ -159,21 +159,16 @@ if (isset($_POST['send'])) {
           <?php endif; ?>
 
 
-          <h4>Connexion</h4>
+          <h4><center>Bienvenue</center></h4>
           <form action="#" method="POST">
             <div class="form-group">
               <label for="email">Adresse e-mail</label>
               <input type="email" name="email" class="form-control" required>
             </div>
-            <div class="form-group">
-              <label for="password">Mot de passe</label>
-              <input type="password" name="password" class="form-control" required>
-            </div>
-            <div class="form-group text-right">
-              <a href="mot-de-passe-oublie.html" style="font-size: 0.9em;">Mot de passe oublié ?</a>
-            </div>
-            <center><button type="submit" class="btn btn-danger" name="send">Se connecter</button></center>          </form>
-          <p class="mt-3" style="font-size: 0.9em;">Vous n'avez pas encore de compte ? <a href="comptes.php" style="color: #7a0000;">Créer un compte</a></p>
+
+          
+            <center><button type="submit" class="btn btn-danger" name="send" style="margin-top:9px;">Se connecter</button></center>          </form>
+          
         </div>
       </div>
     </div>
