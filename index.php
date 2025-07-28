@@ -15,10 +15,10 @@ if (isset($_POST["envoyer"])) {
 
     $stmt = $conn->prepare("INSERT INTO messages_contact(nom, email, sujet, message) VALUES (?, ?, ?, ?)");
     if ($stmt->execute([$nom, $email, $sujet, $message])) {
-      $success = "✅ Votre message a été envoyé avec succès.";
+      $success = "Votre message a été envoyé avec succès.";
       header("location:index.php");
     } else {
-      $error = "❌ Une erreur s'est produite lors de l'envoi du message.";
+      $error = "Une erreur s'est produite lors de l'envoi du message.";
     }
   
 }
