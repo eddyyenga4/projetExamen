@@ -28,6 +28,7 @@ if (isset($_POST["envoyer"])) {
 
 
 
+
 ?>
 
 
@@ -46,7 +47,7 @@ if (isset($_POST["envoyer"])) {
   <title>Université BBM - Accueil</title>
 
   <!-- Bootstrap core CSS -->
-  <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="vendors/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 
   <!-- FontAwesome pour icônes -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
@@ -572,8 +573,8 @@ if (isset($_POST["envoyer"])) {
 
   <!-- Scripts -->
   <!-- Bootstrap core JavaScript -->
-  <script src="vendor/jquery/jquery.min.js"></script>
-  <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="vendors/jquery/jquery.min.js"></script>
+  <script src="vendors/bootstrap/js/bootstrap.bundle.min.js"></script>
 
   <script src="assets/js/isotope.min.js"></script>
   <script src="assets/js/owl-carousel.js"></script>
