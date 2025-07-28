@@ -1,5 +1,5 @@
 <?php
-$conn = new mysqli("localhost","root","2024","mobondo");
+$conn = new mysqli("localhost","root","","mobondo");
 
 // Vérification
 if ($conn->connect_error) {
