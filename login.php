@@ -4,7 +4,7 @@ include 'db.php'; // $conn est une connexion mysqli (avec mysqli_connect)
 
 require 'vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\SMTP;// Protocole de transfer de mail
 use PHPMailer\PHPMailer\Exception;
 
 $error = '';

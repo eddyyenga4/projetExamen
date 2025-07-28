@@ -1,33 +1,27 @@
 <?php
 
 if (isset($_POST["envoyer"])) {
-//emmanuela kingolo samaki
+//emmanuela kingolo samaki et ntare nkivumu ruth= audrey+algresse
 }
 
 include 'db.php';
 
-if (isset($_POST["envoyer"])) {
-  $nom = $_POST['nom'];
-  $email = $_POST['email'];
-  $sujet = $_POST['sujet'];
-  $message = $_POST['message'];
+  if (isset($_POST["envoyer"])) {
+    $nom = $_POST['nom'];
+    $email = $_POST['email'];
+    $sujet = $_POST['sujet'];
+    $message = $_POST['message'];
 
 
-    $stmt = $conn->prepare("INSERT INTO messages_contact(nom, email, sujet, message) VALUES (?, ?, ?, ?)");
-    if ($stmt->execute([$nom, $email, $sujet, $message])) {
-      $success = "Votre message a été envoyé avec succès.";
-      header("location:index.php");
-    } else {
-      $error = "Une erreur s'est produite lors de l'envoi du message.";
-    }
-  
-}
-
-
-
-
-
-
+      $stmt = $conn->prepare("INSERT INTO messages_contact(nom, email, sujet, message) VALUES (?, ?, ?, ?)");
+      if ($stmt->execute([$nom, $email, $sujet, $message])) {
+        $success = "Votre message a été envoyé avec succès.";
+        header("location:index.php");
+      } else {
+        $error = "Une erreur s'est produite lors de l'envoi du message.";
+      }
+    
+  }
 
 ?>
 
