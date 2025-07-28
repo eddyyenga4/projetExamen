@@ -166,7 +166,6 @@ if (isset($_POST['send'])) {
               <input type="email" name="email" class="form-control" required>
             </div>
 
-          
             <center><button type="submit" class="btn btn-danger" name="send" style="margin-top:9px;">Se connecter</button></center>          </form>
           
         </div>
